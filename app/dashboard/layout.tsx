@@ -6,9 +6,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative min-h-screen">
+    <div className="flex h-screen">
       <Sidebar />
-      <main className="lg:pl-[240px]">
+      <main className="flex-1 lg:pl">
         <div className="h-full p-8">{children}</div>
       </main>
     </div>
