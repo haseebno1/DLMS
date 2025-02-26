@@ -8,17 +8,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import {
-  Car,
-  ChevronRight,
+  LayoutDashboard,
   FileText,
-  Home,
+  Plus,
+  ChevronRight,
   Menu,
   Moon,
   Sun,
   User,
   Users,
+  LogOut,
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -30,23 +32,21 @@ export function Sidebar({ className }: SidebarProps) {
   const routes = [
     {
       label: "Dashboard",
-      icon: Home,
+      icon: LayoutDashboard,
       href: "/dashboard",
+      active: pathname === "/dashboard",
     },
     {
       label: "Licenses",
       icon: FileText,
       href: "/dashboard/licenses",
+      active: pathname.startsWith("/dashboard/licenses") && pathname !== "/dashboard/licenses/new",
     },
     {
       label: "New License",
-      icon: Car,
+      icon: Plus,
       href: "/dashboard/licenses/new",
-    },
-    {
-      label: "Users",
-      icon: Users,
-      href: "/dashboard/users",
+      active: pathname === "/dashboard/licenses/new",
     },
   ];
 
@@ -54,18 +54,20 @@ export function Sidebar({ className }: SidebarProps) {
     <>
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild className="lg:hidden">
-          <Button variant="outline" size="icon" className="fixed left-4 top-4">
+          <Button variant="ghost" size="icon" className="fixed left-4 top-3 z-50">
             <Menu className="h-4 w-4" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-[240px] p-0">
+        <SheetContent side="left" className="w-64 p-0">
           <SidebarContent routes={routes} pathname={pathname} />
         </SheetContent>
       </Sheet>
 
       <nav
         className={cn(
-          "hidden lg:block border-r bg-background h-screen w-[240px]",
+          "hidden lg:block h-screen w-64 flex-shrink-0",
+          "bg-gradient-to-b from-background to-background/95 dark:from-background/95 dark:to-background/90",
+          "border-r border-border/30 backdrop-blur-sm",
           className
         )}
       >
@@ -83,54 +85,55 @@ function SidebarContent({
   pathname: string;
 }) {
   const { theme, setTheme } = useTheme();
+  const currentTheme = theme === 'dark' ? 'dark' : 'light';
 
   return (
-    <div className="space-y-4 py-4 flex flex-col h-full">
-      <div className="px-3 py-2">
-        <Link href="/dashboard">
-          <div className="flex items-center pl-3 mb-14">
-            <Car className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold ml-2">DLMS</h1>
+    <div className="flex flex-col h-full">
+      <div className="p-6">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center">
+            <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
           </div>
+          <span className="font-semibold text-lg">DLMS</span>
         </Link>
+      </div>
+
+      <ScrollArea className="flex-1 px-4">
         <div className="space-y-1">
           {routes.map((route) => (
-            <Link
-              key={route.href}
-              href={route.href}
-              className={cn(
-                "text-sm group flex p-3 w-full justify-start font-medium cursor-pointer hover:bg-primary/10 rounded-lg transition",
-                pathname === route.href ? "bg-primary/10 text-primary" : ""
-              )}
-            >
-              <div className="flex items-center flex-1">
-                <route.icon className={cn("h-4 w-4 mr-3")} />
-                {route.label}
-              </div>
-              <ChevronRight
+            <Link key={route.href} href={route.href}>
+              <Button
+                variant="ghost"
                 className={cn(
-                  "ml-auto h-4 w-4 transition-transform",
-                  pathname === route.href ? "rotate-90" : ""
+                  "w-full justify-start gap-4 px-4 py-6",
+                  "text-muted-foreground hover:text-foreground",
+                  "bg-transparent hover:bg-accent/50",
+                  "transition-all duration-200",
+                  route.active && "bg-accent/50 text-foreground"
                 )}
-              />
+              >
+                <route.icon className={cn(
+                  "h-5 w-5",
+                  route.active ? "text-primary" : "text-muted-foreground"
+                )} />
+                <span className="text-base font-medium">{route.label}</span>
+                {route.active && (
+                  <div className="ml-auto">
+                    <ChevronRight className="h-5 w-5 text-primary" />
+                  </div>
+                )}
+              </Button>
             </Link>
           ))}
         </div>
-      </div>
-      <div className="mt-auto px-3 py-2">
-        <Button
-          variant="ghost"
-          className="w-full justify-start"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        >
-          <Sun className="rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 mr-2" />
-          <Moon className="absolute rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 mr-2" />
-          {theme === "dark" ? "Light Mode" : "Dark Mode"}
-        </Button>
-        <Button variant="ghost" className="w-full justify-start">
-          <User className="mr-2 h-4 w-4" />
-          Profile
-        </Button>
+      </ScrollArea>
+
+      <div className="p-4 mt-auto border-t border-border/30">
+        <LogoutButton 
+          variant="ghost" 
+          size="lg"
+          className="w-full justify-start gap-4 px-4 py-6 text-base font-medium text-muted-foreground hover:text-foreground"
+        />
       </div>
     </div>
   );
