@@ -11,97 +11,165 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
-interface LicenseTypeCount {
-  name: string;
-  value: number;
-  color: string;
-}
-
-interface BloodGroup {
-  name: string;
-  value: number;
-  color: string;
-}
-
-interface City {
-  name: string;
-  province: string;
-  count: number;
-}
-
-const LICENSE_TYPES: LicenseTypeCount[] = [
-  { name: "Motorcycle", value: 0, color: "#0ea5e9" },
-  { name: "Car/Jeep", value: 0, color: "#22c55e" },
-  { name: "LTV", value: 0, color: "#f59e0b" },
-  { name: "HTV", value: 0, color: "#ef4444" },
+// Pakistani cities with provinces for the map visualization
+const cities = [
+  { name: "Islamabad", province: "Federal", count: 0, lat: 33.6844, lng: 73.0479 },
+  { name: "Karachi", province: "Sindh", count: 0, lat: 24.8607, lng: 67.0011 },
+  { name: "Lahore", province: "Punjab", count: 0, lat: 31.5204, lng: 74.3587 },
+  { name: "Peshawar", province: "KPK", count: 0, lat: 34.0151, lng: 71.5249 },
+  { name: "Quetta", province: "Balochistan", count: 0, lat: 30.1798, lng: 66.9750 },
+  { name: "Faisalabad", province: "Punjab", count: 0, lat: 31.4504, lng: 73.1350 },
+  { name: "Multan", province: "Punjab", count: 0, lat: 30.1984, lng: 71.4687 },
+  { name: "Hyderabad", province: "Sindh", count: 0, lat: 25.3960, lng: 68.3578 },
+  { name: "Rawalpindi", province: "Punjab", count: 0, lat: 33.6844, lng: 73.0479 },
+  { name: "Gujranwala", province: "Punjab", count: 0, lat: 32.1877, lng: 74.1945 },
 ];
 
-const BLOOD_GROUPS: BloodGroup[] = [
-  { name: "A+", value: 0, color: "#ef4444" },
-  { name: "A-", value: 0, color: "#f97316" },
-  { name: "B+", value: 0, color: "#22c55e" },
-  { name: "B-", value: 0, color: "#3b82f6" },
-  { name: "AB+", value: 0, color: "#8b5cf6" },
-  { name: "AB-", value: 0, color: "#ec4899" },
-  { name: "O+", value: 0, color: "#f59e0b" },
-  { name: "O-", value: 0, color: "#6366f1" },
+// License types for chart data
+const licenseTypes = [
+  { name: "Motorcycle", color: "#ff7c43" },
+  { name: "Car", color: "#f95d6a" },
+  { name: "LTV", color: "#d45087" },
+  { name: "HTV", color: "#a05195" },
+  { name: "PSV", color: "#665191" },
+  { name: "International", color: "#2f4b7c" },
 ];
 
-const CITIES: City[] = [
-  { name: "Lahore", province: "Punjab", count: 0 },
-  { name: "Karachi", province: "Sindh", count: 0 },
-  { name: "Islamabad", province: "Federal", count: 0 },
-  { name: "Peshawar", province: "KPK", count: 0 },
-  { name: "Quetta", province: "Balochistan", count: 0 },
-  // Add more cities as needed
+// Blood groups for distribution chart
+const bloodGroups = [
+  { name: "A+", color: "#e74c3c" },
+  { name: "A-", color: "#e67e22" },
+  { name: "B+", color: "#f1c40f" },
+  { name: "B-", color: "#2ecc71" },
+  { name: "AB+", color: "#3498db" },
+  { name: "AB-", color: "#9b59b6" },
+  { name: "O+", color: "#1abc9c" },
+  { name: "O-", color: "#34495e" },
 ];
 
 export default function DashboardPage() {
+  const [dashboardData, setDashboardData] = useState({
+    totalLicenses: 0,
+    activeUsers: 0,
+    pendingApprovals: 0,
+    processedToday: 0,
+    licenseTypes: [...licenseTypes.map(type => ({ ...type, value: 0 }))],
+    bloodGroups: [...bloodGroups.map(group => ({ ...group, value: 0 }))],
+    citiesData: [...cities],
+    recentActivity: [],
+    issuedByMonth: Array(12).fill(0),
+    expiringLicenses: 0
+  });
   const [licenses, setLicenses] = useState<License[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [bloodGroups, setBloodGroups] = useState<BloodGroup[]>(BLOOD_GROUPS);
-  const [cities, setCities] = useState<City[]>(CITIES);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true);
+        
+        // Fetch licenses from Supabase
         const { data, error } = await supabase
-          .from("licenses")
-          .select("*")
-          .order("created_at", { ascending: false });
-
+          .from('licenses')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
         if (error) {
           throw error;
         }
 
-        setLicenses(data || []);
+        const licenseData = data || [];
+        setLicenses(licenseData);
         
-        // Update blood groups count
-        const updatedBloodGroups = [...BLOOD_GROUPS];
-        data?.forEach(license => {
-          const groupIndex = updatedBloodGroups.findIndex(g => g.name === license.blood_group);
-          if (groupIndex !== -1) {
-            updatedBloodGroups[groupIndex].value++;
-          }
-        });
-        setBloodGroups(updatedBloodGroups);
-
-        // Update cities count
-        const updatedCities = [...CITIES];
-        data?.forEach(license => {
-          const cityIndex = updatedCities.findIndex(city => 
-            city.name.toLowerCase() === license.issue_city?.toLowerCase()
-          );
-          if (cityIndex !== -1) {
-            updatedCities[cityIndex].count++;
-          }
-        });
-        setCities(updatedCities);
-
+        // Process the data for dashboard metrics
+        if (licenseData.length > 0) {
+          // Count total licenses
+          const total = licenseData.length;
+          
+          // Get today's date for processed today calculation
+          const today = new Date();
+          const todayString = format(today, 'yyyy-MM-dd');
+          
+          // Calculate processed today (licenses created today)
+          const processedToday = licenseData.filter(license => 
+            license.created_at && license.created_at.startsWith(todayString)
+          ).length;
+          
+          // Count license types
+          const licenseTypeCounts = [...licenseTypes];
+          licenseData.forEach(license => {
+            if (license.license_types && Array.isArray(license.license_types)) {
+              license.license_types.forEach(type => {
+                const typeIndex = licenseTypeCounts.findIndex(t => t.name.toLowerCase() === type.toLowerCase());
+                if (typeIndex !== -1) {
+                  if (!licenseTypeCounts[typeIndex].value) {
+                    licenseTypeCounts[typeIndex].value = 1;
+                  } else {
+                    licenseTypeCounts[typeIndex].value += 1;
+                  }
+                }
+              });
+            }
+          });
+          
+          // Count blood groups
+          const bloodGroupCounts = [...bloodGroups];
+          licenseData.forEach(license => {
+            const groupIndex = bloodGroupCounts.findIndex(g => g.name === license.blood_group);
+            if (groupIndex !== -1) {
+              if (!bloodGroupCounts[groupIndex].value) {
+                bloodGroupCounts[groupIndex].value = 1;
+              } else {
+                bloodGroupCounts[groupIndex].value += 1;
+              }
+            }
+          });
+          
+          // Count licenses by city
+          const cityData = [...cities];
+          licenseData.forEach(license => {
+            const cityIndex = cityData.findIndex(city => city.name.toLowerCase() === license.issue_city.toLowerCase());
+            if (cityIndex !== -1) {
+              cityData[cityIndex].count += 1;
+            }
+          });
+          
+          // Count licenses issued by month
+          const monthlyIssuance = Array(12).fill(0);
+          licenseData.forEach(license => {
+            if (license.created_at) {
+              const month = new Date(license.created_at).getMonth();
+              monthlyIssuance[month] += 1;
+            }
+          });
+          
+          // Count expiring licenses (within next 30 days)
+          const thirtyDaysFromNow = new Date();
+          thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+          const expiringCount = licenseData.filter(license => {
+            if (license.valid_to) {
+              const expiryDate = new Date(license.valid_to);
+              return expiryDate > today && expiryDate <= thirtyDaysFromNow;
+            }
+            return false;
+          }).length;
+          
+          // Update dashboard data
+          setDashboardData({
+            totalLicenses: total,
+            activeUsers: total, // Assuming each license holder is an active user
+            pendingApprovals: Math.floor(Math.random() * 30), // Mock data for pending approvals
+            processedToday,
+            licenseTypes: licenseTypeCounts,
+            bloodGroups: bloodGroupCounts.filter(group => group.value > 0),
+            citiesData: cityData,
+            recentActivity: licenseData.slice(0, 5),
+            issuedByMonth: monthlyIssuance,
+            expiringLicenses: expiringCount
+          });
+        }
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
+        console.error('Error fetching dashboard data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -110,38 +178,14 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, []);
 
-  const getLicenseTypeCounts = (): LicenseTypeCount[] => {
-    const licenseTypeCounts: LicenseTypeCount[] = LICENSE_TYPES.map(type => ({
-      ...type,
-      value: 0
-    }));
-
-    if (licenses && licenses.length > 0) {
-      licenses.forEach(license => {
-        if (license.license_types && Array.isArray(license.license_types)) {
-          license.license_types.forEach((type: string) => {
-            const typeIndex = licenseTypeCounts.findIndex(t => t.name.toLowerCase() === type.toLowerCase());
-            if (typeIndex !== -1) {
-              licenseTypeCounts[typeIndex].value++;
-            }
-          });
-        }
-      });
-    }
-
-    return licenseTypeCounts;
-  };
-
-  const licenseTypeCounts = getLicenseTypeCounts();
-
   // Prepare monthly data for the chart
-  const monthlyData = licenseTypeCounts.map((type, index) => ({
-    name: type.name,
-    count: type.value
+  const monthlyData = dashboardData.issuedByMonth.map((count, index) => ({
+    name: new Date(0, index).toLocaleString('default', { month: 'short' }),
+    count
   }));
 
   // Format data for map visualization
-  const mapData = cities.filter(city => city.count > 0);
+  const mapData = dashboardData.citiesData.filter(city => city.count > 0);
 
   return (
     <div className="space-y-8">
@@ -161,76 +205,76 @@ export default function DashboardPage() {
 
         <TabsContent value="overview" className="space-y-6">
           {/* Summary Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Licenses</CardTitle>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Licenses</CardTitle>
                 <FileText className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
+          </CardHeader>
+          <CardContent>
                 {isLoading ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">{licenses.length}</div>
-                    <p className="text-xs text-muted-foreground">
+                    <div className="text-2xl font-bold">{dashboardData.totalLicenses}</div>
+            <p className="text-xs text-muted-foreground">
                       Licenses in database
-                    </p>
+            </p>
                   </>
                 )}
-              </CardContent>
-            </Card>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
                 <Users className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
+          </CardHeader>
+          <CardContent>
                 {isLoading ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">{licenses.length}</div>
-                    <p className="text-xs text-muted-foreground">
+                    <div className="text-2xl font-bold">{dashboardData.activeUsers}</div>
+            <p className="text-xs text-muted-foreground">
                       Licensed drivers
-                    </p>
+            </p>
                   </>
                 )}
-              </CardContent>
-            </Card>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
                 <AlertCircle className="h-4 w-4 text-amber-500" />
-              </CardHeader>
-              <CardContent>
+          </CardHeader>
+          <CardContent>
                 {isLoading ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">{Math.floor(Math.random() * 30)}</div>
-                    <p className="text-xs text-muted-foreground">
+                    <div className="text-2xl font-bold">{dashboardData.pendingApprovals}</div>
+            <p className="text-xs text-muted-foreground">
                       Requires verification
-                    </p>
+            </p>
                   </>
                 )}
-              </CardContent>
-            </Card>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Processed Today</CardTitle>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Processed Today</CardTitle>
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
+          </CardHeader>
+          <CardContent>
                 {isLoading ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">{Math.floor(Math.random() * 10)}</div>
-                    <p className="text-xs text-muted-foreground">
+                    <div className="text-2xl font-bold">{dashboardData.processedToday}</div>
+            <p className="text-xs text-muted-foreground">
                       New licenses today
                     </p>
                   </>
@@ -254,10 +298,12 @@ export default function DashboardPage() {
                 ) : (
                   <div className="flex flex-col items-center justify-center h-[180px]">
                     <div className="text-5xl font-bold text-amber-500">
-                      {Math.floor(Math.random() * 10)}
+                      {dashboardData.expiringLicenses}
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      {Math.floor(Math.random() * 10) > 0 ? "Require renewal soon" : "No licenses expiring soon"}
+                      {dashboardData.expiringLicenses > 0 
+                        ? "Require renewal soon"
+                        : "No licenses expiring soon"}
                     </p>
                     <div className="mt-4">
                       <Badge variant="outline" className="bg-amber-50">
@@ -285,7 +331,7 @@ export default function DashboardPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={bloodGroups.filter(group => group.value > 0)}
+                          data={dashboardData.bloodGroups.filter(group => group.value > 0)}
                           cx="50%"
                           cy="50%"
                           innerRadius={40}
@@ -294,7 +340,7 @@ export default function DashboardPage() {
                           dataKey="value"
                           label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                         >
-                          {bloodGroups.filter(group => group.value > 0).map((entry, index) => (
+                          {dashboardData.bloodGroups.filter(group => group.value > 0).map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
@@ -324,8 +370,8 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {licenses.length > 0 ? (
-                      licenses.slice(0, 5).map((license, i) => (
+                    {dashboardData.recentActivity.length > 0 ? (
+                      dashboardData.recentActivity.map((license, i) => (
                         <div key={i} className="flex justify-between items-center p-2 text-sm border-b">
                           <div className="font-medium">{license.name}</div>
                           <div className="text-xs text-muted-foreground">
@@ -385,7 +431,7 @@ export default function DashboardPage() {
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart 
-                        data={licenseTypeCounts.filter(type => type.value > 0)}
+                        data={dashboardData.licenseTypes.filter(type => type.value > 0)}
                         layout="vertical"
                       >
                         <CartesianGrid strokeDasharray="3 3" />
@@ -393,7 +439,7 @@ export default function DashboardPage() {
                         <YAxis dataKey="name" type="category" />
                         <Tooltip />
                         <Bar dataKey="value" fill="#3f51b5">
-                          {licenseTypeCounts
+                          {dashboardData.licenseTypes
                             .filter(type => type.value > 0)
                             .map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
@@ -425,7 +471,7 @@ export default function DashboardPage() {
                     <Skeleton className="h-6 w-20 mt-2" />
                   ) : (
                     <div className="text-xl font-bold mt-2">
-                      {licenseTypeCounts.sort((a, b) => (b.value || 0) - (a.value || 0))[0]?.name || 'N/A'}
+                      {dashboardData.licenseTypes.sort((a, b) => (b.value || 0) - (a.value || 0))[0]?.name || 'N/A'}
                     </div>
                   )}
                 </div>
@@ -439,7 +485,7 @@ export default function DashboardPage() {
                     <Skeleton className="h-6 w-20 mt-2" />
                   ) : (
                     <div className="text-xl font-bold mt-2">
-                      {cities.sort((a, b) => b.count - a.count)[0]?.name || 'N/A'}
+                      {dashboardData.citiesData.sort((a, b) => b.count - a.count)[0]?.name || 'N/A'}
                     </div>
                   )}
                 </div>
@@ -453,7 +499,7 @@ export default function DashboardPage() {
                     <Skeleton className="h-6 w-20 mt-2" />
                   ) : (
                     <div className="text-xl font-bold mt-2">
-                      {licenses.length > 0 ? '+12.5%' : '0%'}
+                      {dashboardData.totalLicenses > 0 ? '+12.5%' : '0%'}
                     </div>
                   )}
                 </div>
@@ -495,7 +541,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-muted-foreground mb-4">Map visualization requires a map component</p>
                       
                       <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto">
-                        {cities
+                        {dashboardData.citiesData
                           .filter(city => city.count > 0)
                           .sort((a, b) => b.count - a.count)
                           .map((city, i) => (
@@ -531,11 +577,11 @@ export default function DashboardPage() {
                       <PieChart>
                         <Pie
                           data={[
-                            { name: "Punjab", value: cities.filter(c => c.province === "Punjab").reduce((acc, curr) => acc + curr.count, 0), color: "#f59e0b" },
-                            { name: "Sindh", value: cities.filter(c => c.province === "Sindh").reduce((acc, curr) => acc + curr.count, 0), color: "#10b981" },
-                            { name: "KPK", value: cities.filter(c => c.province === "KPK").reduce((acc, curr) => acc + curr.count, 0), color: "#3b82f6" },
-                            { name: "Balochistan", value: cities.filter(c => c.province === "Balochistan").reduce((acc, curr) => acc + curr.count, 0), color: "#8b5cf6" },
-                            { name: "Federal", value: cities.filter(c => c.province === "Federal").reduce((acc, curr) => acc + curr.count, 0), color: "#ec4899" },
+                            { name: "Punjab", value: dashboardData.citiesData.filter(c => c.province === "Punjab").reduce((acc, curr) => acc + curr.count, 0), color: "#f59e0b" },
+                            { name: "Sindh", value: dashboardData.citiesData.filter(c => c.province === "Sindh").reduce((acc, curr) => acc + curr.count, 0), color: "#10b981" },
+                            { name: "KPK", value: dashboardData.citiesData.filter(c => c.province === "KPK").reduce((acc, curr) => acc + curr.count, 0), color: "#3b82f6" },
+                            { name: "Balochistan", value: dashboardData.citiesData.filter(c => c.province === "Balochistan").reduce((acc, curr) => acc + curr.count, 0), color: "#8b5cf6" },
+                            { name: "Federal", value: dashboardData.citiesData.filter(c => c.province === "Federal").reduce((acc, curr) => acc + curr.count, 0), color: "#ec4899" },
                           ].filter(item => item.value > 0)}
                           cx="50%"
                           cy="50%"
@@ -579,7 +625,7 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {cities
+                    {dashboardData.citiesData
                       .filter(city => city.count > 0)
                       .sort((a, b) => b.count - a.count)
                       .slice(0, 5)
@@ -594,7 +640,7 @@ export default function DashboardPage() {
                             <div 
                               className="bg-primary h-2 rounded-full" 
                               style={{ 
-                                width: `${Math.min(100, (city.count / cities[0].count) * 100)}%` 
+                                width: `${Math.min(100, (city.count / dashboardData.citiesData[0].count) * 100)}%` 
                               }}
                             />
                           </div>
@@ -602,9 +648,9 @@ export default function DashboardPage() {
                       ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
+          </CardContent>
+        </Card>
+      </div>
         </TabsContent>
       </Tabs>
     </div>

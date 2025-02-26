@@ -40,7 +40,7 @@ export function Sidebar({ className }: SidebarProps) {
       label: "Licenses",
       icon: FileText,
       href: "/dashboard/licenses",
-      active: pathname?.startsWith("/dashboard/licenses") && pathname !== "/dashboard/licenses/new",
+      active: pathname.startsWith("/dashboard/licenses") && pathname !== "/dashboard/licenses/new",
     },
     {
       label: "New License",
@@ -82,7 +82,7 @@ function SidebarContent({
   pathname,
 }: {
   routes: any[];
-  pathname: string | null;
+  pathname: string;
 }) {
   const { theme, setTheme } = useTheme();
   const currentTheme = theme === 'dark' ? 'dark' : 'light';
