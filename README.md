@@ -1,26 +1,135 @@
-# DLMS
+Driver License Management System (DLMS)
 
-[Edit in StackBlitz next generation editor ⚡️](https://stackblitz.com/~/github.com/haseebno1/DLMS)
+A modern web application for managing driver licenses, built with Next.js 14, Supabase, and Tailwind CSS.
 
-## Authentication System
+Features
 
-The Driver License Management System uses a unified authentication system for both user verification and admin access:
+🔐 Secure Admin Authentication
 
-1. **Login Process**:
-   - Users and admins use the same login form
-   - For admin authentication, use the admin email (set in .env) and admin secret
-   - For regular users, CNIC verification is used
+📝 License Creation and Management
 
-2. **Authentication Storage**:
-   - Authentication tokens are stored in either localStorage (for "Remember me") or sessionStorage
-   - Tokens include expiration information for enhanced security
+🔍 Advanced Search and Filtering
 
-3. **Protected Routes**:
-   - Admin dashboard routes are protected with the AdminAuth component
-   - This component verifies valid admin tokens before allowing access
+📸 Photo and Signature Upload
 
-4. **Environment Configuration**:
-   - `ADMIN_SECRET`: Password for admin authentication
-   - `ADMIN_EMAIL`: Email address for admin login
+🖨️ License Printing
 
-## Development Setup
+🌓 Dark/Light Mode
+
+📱 Responsive Design
+
+🚀 Real-time Updates
+
+Tech Stack
+
+Framework: Next.js 14 (App Router)
+
+Database & Auth: Supabase
+
+Styling: Tailwind CSS + Shadcn UI
+
+Forms: React Hook Form + Zod
+
+State Management: React Hooks
+
+File Storage: Supabase Storage
+
+Prerequisites
+
+Before you begin, ensure you have:
+
+Node.js 18+ installed
+
+A Supabase account and project
+
+Git installed
+
+Getting Started
+
+Clone the repository
+
+git clone https://github.com/yourusername/dlms.git
+cd dlms
+
+Install dependencies
+
+npm install
+
+Environment Setup
+
+cp .env.local.example .env.local
+
+Fill in your environment variables in .env.local
+
+Supabase Setup
+
+Create a new Supabase project
+
+Set up the database tables (schema provided in documentation)
+
+Create storage buckets for license images and signatures
+
+Copy your project URL and keys to .env.local
+
+Run the development server
+
+npm run dev
+
+Deployment
+
+Prepare for deployment
+
+Ensure all environment variables are set
+
+Build the project locally to check for errors:
+
+npm run build
+
+Deploy to Vercel
+
+npm i -g vercel
+vercel
+
+Or deploy using the Vercel dashboard:
+
+Push your code to GitHub
+
+Import the repository in Vercel
+
+Configure environment variables
+
+Deploy!
+
+Environment Variables
+
+Required environment variables:
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_KEY=
+
+# Admin Auth
+ADMIN_SECRET=
+ADMIN_EMAIL=
+
+Contributing
+
+Fork the repository
+
+Create your feature branch
+
+Commit your changes
+
+Push to the branch
+
+Open a pull request
+
+License
+
+This project is licensed under the MIT License.
+
+Support
+
+For support, email support@yourdomain.com or open an issue in the repository.
+
