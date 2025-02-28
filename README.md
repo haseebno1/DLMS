@@ -1,6 +1,7 @@
 # Driver License Management System (DLMS)
-
 A modern web application for managing driver licenses, built with Next.js 14, Supabase, and Tailwind CSS.
+![UI Transition](https://github.com/haseebno1/DLMS/blob/main/DLMS.gif?raw=true)
+
 
 ## Features
 
