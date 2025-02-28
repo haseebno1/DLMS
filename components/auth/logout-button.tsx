@@ -2,9 +2,9 @@
 
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { clearAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Cookies from 'js-cookie';
 
 interface LogoutButtonProps {
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
@@ -16,9 +16,25 @@ export function LogoutButton({ variant = "ghost", size = "sm", className }: Logo
   const router = useRouter();
 
   const handleLogout = () => {
-    clearAuth();
-    toast.success("Logged out successfully");
-    router.push("/");
+    try {
+      // Clear auth state
+      localStorage.removeItem('isAdmin');
+      Cookies.remove('isAdmin', { path: '/' });
+      
+      // Pre-fetch home route
+      router.prefetch('/');
+      
+      // Use replace for immediate navigation
+      router.replace('/');
+      
+      // Show success message after a small delay
+      setTimeout(() => {
+        toast.success("Logged out successfully");
+      }, 100);
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Error during logout');
+    }
   };
 
   return (

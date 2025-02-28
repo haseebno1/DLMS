@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "next/navigation";
 import AdminAuth from "@/components/admin/AdminAuth";
-import { supabase } from "@/lib/supabase";
+import { supabase, getSupabaseClient } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import Link from "next/link";
@@ -126,7 +126,8 @@ export default function EditLicensePage({ params }: { params: { id: string } }) 
     const fetchLicense = async () => {
       try {
         setIsLoading(true);
-        const { data, error } = await supabase
+        const supabaseClient = getSupabaseClient();
+        const { data, error } = await supabaseClient
           .from('licenses')
           .select('*')
           .eq('id', params.id)
@@ -158,6 +159,12 @@ export default function EditLicensePage({ params }: { params: { id: string } }) 
       } catch (error) {
         console.error('Error fetching license:', error);
         toast.error('Failed to load license details');
+        
+        // Clear admin state if unauthorized
+        if (error?.message?.includes('unauthorized')) {
+          localStorage.removeItem('isAdmin');
+          router.push('/');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -208,22 +215,65 @@ export default function EditLicensePage({ params }: { params: { id: string } }) 
     try {
       setIsSaving(true);
       
-      // Get admin token from localStorage
-      const adminToken = localStorage.getItem('adminToken');
-      if (!adminToken) {
+      // Check if user is admin
+      const isAdmin = localStorage.getItem('isAdmin') === 'true';
+      if (!isAdmin) {
         toast.error("Admin authentication required");
-        router.push('/admin/login');
+        router.push('/');
         return;
       }
-      
-      // Convert files to base64 for API submission, only if new files were selected
-      const imageFile = values.image?.[0];
-      const signatureFile = values.signature?.[0];
-      
-      const imageBase64 = imageFile ? await fileToBase64(imageFile) : null;
-      const signatureBase64 = signatureFile ? await fileToBase64(signatureFile) : null;
-      
-      // Prepare license data
+
+      const supabaseClient = getSupabaseClient();
+
+      // Handle image upload if new image is selected
+      let imageUrl = license?.image_url;
+      if (values.image && values.image.length > 0) {
+        const imageFile = values.image[0];
+        const imagePath = `${values.cnic}/photo_${Date.now()}`;
+        
+        const { data: imageData, error: imageError } = await supabaseClient.storage
+          .from('license-images')
+          .upload(imagePath, imageFile, {
+            contentType: imageFile.type,
+            upsert: false,
+          });
+
+        if (imageError) {
+          throw new Error('Failed to upload image');
+        }
+
+        const { data: imageUrlData } = supabaseClient.storage
+          .from('license-images')
+          .getPublicUrl(imagePath);
+        
+        imageUrl = imageUrlData.publicUrl;
+      }
+
+      // Handle signature upload if new signature is selected
+      let signatureUrl = license?.signature_url;
+      if (values.signature && values.signature.length > 0) {
+        const signatureFile = values.signature[0];
+        const signaturePath = `${values.cnic}/signature_${Date.now()}`;
+        
+        const { data: signatureData, error: signatureError } = await supabaseClient.storage
+          .from('license-signatures')
+          .upload(signaturePath, signatureFile, {
+            contentType: 'image/png',
+            upsert: false,
+          });
+
+        if (signatureError) {
+          throw new Error('Failed to upload signature');
+        }
+
+        const { data: signatureUrlData } = supabaseClient.storage
+          .from('license-signatures')
+          .getPublicUrl(signaturePath);
+        
+        signatureUrl = signatureUrlData.publicUrl;
+      }
+
+      // Format the data to match the database schema
       const licenseData = {
         cnic: values.cnic,
         name: values.name,
@@ -237,41 +287,31 @@ export default function EditLicensePage({ params }: { params: { id: string } }) 
         issue_city: values.issueCity,
         valid_from: values.validFrom,
         valid_to: values.validTo,
+        image_url: imageUrl,
+        signature_url: signatureUrl
       };
-      
-      // Submit to admin API
-      const response = await fetch('/api/admin-update-license', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: params.id,
-          adminToken,
-          licenseData,
-          imageBase64,
-          signatureBase64
-        }),
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success("License updated successfully!");
-        router.push(`/dashboard/licenses/${params.id}`);
-      } else {
-        toast.error(`Failed to update license: ${result.error}`);
-        
-        // If unauthorized, redirect to login
-        if (response.status === 401) {
-          localStorage.removeItem('adminToken');
-          localStorage.removeItem('adminTokenExpiry');
-          router.push('/admin/login');
-        }
+
+      // Update the license in Supabase
+      const { error } = await supabaseClient
+        .from('licenses')
+        .update(licenseData)
+        .eq('id', params.id);
+
+      if (error) {
+        throw error;
       }
-    } catch (error) {
-      console.error("License update error:", error);
-      toast.error("Failed to update license");
+
+      toast.success('License updated successfully');
+      router.push('/dashboard/licenses');
+    } catch (error: any) {
+      console.error('Error updating license:', error);
+      toast.error(error?.message || 'Failed to update license');
+      
+      // Clear admin state if unauthorized
+      if (error?.message?.includes('unauthorized')) {
+        localStorage.removeItem('isAdmin');
+        router.push('/');
+      }
     } finally {
       setIsSaving(false);
     }

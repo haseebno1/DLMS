@@ -31,6 +31,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { User, Activity, FileText, ImageIcon } from "lucide-react";
+import { supabase, getSupabaseClient } from "@/lib/supabase";
 
 const licenseTypes = [
   { id: "mcycle", label: "M.CYCLE" },
@@ -87,6 +88,8 @@ const formSchema = z.object({
 export default function NewLicensePage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -110,22 +113,65 @@ export default function NewLicensePage() {
     try {
       setIsLoading(true);
       
-      // Get admin token from localStorage
-      const adminToken = localStorage.getItem('adminToken');
-      if (!adminToken) {
+      // Check if user is admin
+      const isAdmin = localStorage.getItem('isAdmin') === 'true';
+      if (!isAdmin) {
         toast.error("Admin authentication required");
-        router.push('/admin/login');
+        router.push('/');
         return;
       }
+
+      const supabaseClient = getSupabaseClient();
       
-      // Convert files to base64 for API submission
-      const imageFile = values.image?.[0];
-      const signatureFile = values.signature?.[0];
-      
-      const imageBase64 = imageFile ? await fileToBase64(imageFile) : null;
-      const signatureBase64 = signatureFile ? await fileToBase64(signatureFile) : null;
-      
-      // Prepare license data
+      // Handle image upload
+      let imageUrl = null;
+      if (values.image.length > 0) {
+        const imageFile = values.image[0];
+        const imagePath = `${values.cnic}/photo_${Date.now()}`;
+        
+        const { data: imageData, error: imageError } = await supabaseClient.storage
+          .from('license-images')
+          .upload(imagePath, imageFile, {
+            contentType: imageFile.type,
+            upsert: false,
+          });
+
+        if (imageError) {
+          throw new Error('Failed to upload image');
+        }
+
+        const { data: imageUrlData } = supabaseClient.storage
+          .from('license-images')
+          .getPublicUrl(imagePath);
+        
+        imageUrl = imageUrlData.publicUrl;
+      }
+
+      // Handle signature upload
+      let signatureUrl = null;
+      if (values.signature.length > 0) {
+        const signatureFile = values.signature[0];
+        const signaturePath = `${values.cnic}/signature_${Date.now()}`;
+        
+        const { data: signatureData, error: signatureError } = await supabaseClient.storage
+          .from('license-signatures')
+          .upload(signaturePath, signatureFile, {
+            contentType: 'image/png',
+            upsert: false,
+          });
+
+        if (signatureError) {
+          throw new Error('Failed to upload signature');
+        }
+
+        const { data: signatureUrlData } = supabaseClient.storage
+          .from('license-signatures')
+          .getPublicUrl(signaturePath);
+        
+        signatureUrl = signatureUrlData.publicUrl;
+      }
+
+      // Format the data to match the database schema
       const licenseData = {
         cnic: values.cnic,
         name: values.name,
@@ -139,44 +185,60 @@ export default function NewLicensePage() {
         issue_city: values.issueCity,
         valid_from: values.validFrom,
         valid_to: values.validTo,
+        image_url: imageUrl,
+        signature_url: signatureUrl
       };
-      
-      // Submit to admin API
-      const response = await fetch('/api/admin-create-license', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          adminToken,
-          licenseData,
-          imageBase64,
-          signatureBase64
-        }),
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-      toast.success("License created successfully!");
-        router.push("/dashboard/licenses");
-      } else {
-        toast.error(`Failed to create license: ${result.error}`);
-        
-        // If unauthorized, redirect to login
-        if (response.status === 401) {
-          localStorage.removeItem('adminToken');
-          localStorage.removeItem('adminTokenExpiry');
-          router.push('/admin/login');
-        }
+
+      // Create the license in Supabase
+      const { error } = await supabaseClient
+        .from('licenses')
+        .insert(licenseData);
+
+      if (error) {
+        throw error;
       }
-    } catch (error) {
-      console.error("License creation error:", error);
+
+      toast.success("License created successfully!");
+      router.push('/dashboard/licenses');
+    } catch (error: any) {
+      console.error('Error creating license:', error);
       toast.error("Failed to create license");
+      
+      // Clear admin state if unauthorized
+      if (error?.message?.includes('unauthorized')) {
+        localStorage.removeItem('isAdmin');
+        router.push('/');
+      }
     } finally {
       setIsLoading(false);
     }
   }
+
+  const handleImageChange = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    
+    try {
+      const file = files[0];
+      const base64 = await fileToBase64(file);
+      setImagePreview(base64);
+    } catch (error) {
+      console.error('Error processing image:', error);
+      toast.error('Failed to process image');
+    }
+  };
+
+  const handleSignatureChange = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    
+    try {
+      const file = files[0];
+      const base64 = await fileToBase64(file);
+      setSignaturePreview(base64);
+    } catch (error) {
+      console.error('Error processing signature:', error);
+      toast.error('Failed to process signature');
+    }
+  };
 
   return (
     <AdminAuth>

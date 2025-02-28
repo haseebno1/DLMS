@@ -73,6 +73,33 @@ const getLicenseTypeInfo = (type: string) => {
   };
 };
 
+function LicenseCardSkeleton() {
+  return (
+    <div className="bg-card rounded-lg shadow-sm p-4 animate-pulse">
+      <div className="flex items-start justify-between">
+        <div className="space-y-3 flex-1">
+          <div className="h-4 w-24 bg-muted rounded"></div>
+          <div className="h-4 w-32 bg-muted rounded"></div>
+          <div className="h-4 w-48 bg-muted rounded"></div>
+        </div>
+        <div className="h-12 w-12 bg-muted rounded"></div>
+      </div>
+      <div className="mt-4 space-y-2">
+        <div className="h-3 w-full bg-muted rounded"></div>
+        <div className="h-3 w-3/4 bg-muted rounded"></div>
+      </div>
+      <div className="mt-4 flex items-center justify-between">
+        <div className="h-6 w-20 bg-muted rounded"></div>
+        <div className="flex space-x-2">
+          <div className="h-8 w-8 bg-muted rounded"></div>
+          <div className="h-8 w-8 bg-muted rounded"></div>
+          <div className="h-8 w-8 bg-muted rounded"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LicensesPage() {
   const [search, setSearch] = useState("");
   const [licenses, setLicenses] = useState<License[]>([]);
@@ -134,40 +161,27 @@ export default function LicensesPage() {
     try {
       setIsDeleting(true);
       
-      // Get admin token from localStorage
-      const adminToken = localStorage.getItem('adminToken');
-      if (!adminToken) {
+      // Check if user is admin
+      const isAdmin = localStorage.getItem('isAdmin') === 'true';
+      if (!isAdmin) {
         toast.error("Admin authentication required");
         return;
       }
       
-      const response = await fetch('/api/admin-delete-license', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: licenseToDelete.id,
-          adminToken,
-        }),
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success("License deleted successfully!");
-        // Remove the deleted license from the state
-        setLicenses(licenses.filter(license => license.id !== licenseToDelete.id));
-        setLicenseToDelete(null);
-        setShowDeleteDialog(false);
-      } else {
-        toast.error(`Failed to delete license: ${result.error}`);
-        
-        // If unauthorized, show login message
-        if (response.status === 401) {
-          toast.error("Admin authentication required");
-        }
+      const { error } = await supabase
+        .from('licenses')
+        .delete()
+        .eq('id', licenseToDelete.id);
+
+      if (error) {
+        throw error;
       }
+
+      toast.success("License deleted successfully!");
+      // Remove the deleted license from the state
+      setLicenses(licenses.filter(license => license.id !== licenseToDelete.id));
+      setLicenseToDelete(null);
+      setShowDeleteDialog(false);
     } catch (error) {
       console.error("License deletion error:", error);
       toast.error("Failed to delete license");
@@ -242,51 +256,11 @@ export default function LicensesPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Card key={index} className="relative overflow-hidden">
-              <CardHeader className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-5 w-20" />
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Skeleton className="h-12 w-12 rounded-full" />
-                  <div className="space-y-1.5">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-4 w-24" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-4 w-24" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-3 w-20" />
-                  <div className="flex items-center space-x-2">
-                    <Skeleton className="h-6 w-16" />
-                    <Skeleton className="h-6 w-16" />
-                    <Skeleton className="h-6 w-16" />
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <div className="flex items-center space-x-2">
-                  <Skeleton className="h-9 w-9" />
-                  <Skeleton className="h-9 w-9" />
-                  <Skeleton className="h-9 w-9" />
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
+        <div className="flex items-center justify-center h-64 rounded-lg border border-border/50 bg-card/50">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+            <p className="text-muted-foreground">Loading licenses...</p>
+          </div>
         </div>
       ) : filteredLicenses.length === 0 ? (
         <div className="flex flex-col items-center justify-center bg-muted/20 rounded-lg p-12 border border-border/50">
@@ -325,7 +299,11 @@ export default function LicensesPage() {
           )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredLicenses.map((license) => {
+            {isLoading ? (
+              Array.from({ length: 6 }).map((_, index) => (
+                <LicenseCardSkeleton key={index} />
+              ))
+            ) : filteredLicenses.map((license) => {
               const status = getLicenseStatus(license.valid_to);
               
               return (

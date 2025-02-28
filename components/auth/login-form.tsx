@@ -2,160 +2,126 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import { storeAuth } from "@/lib/auth";
-import { Signature } from "@/components/signature";
-
-const formSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-  rememberMe: z.boolean().default(false),
-});
+import Cookies from 'js-cookie';
+import { Heart } from "lucide-react";
 
 export function LoginForm() {
-  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      rememberMe: false,
-    },
-  });
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      setIsLoading(true);
+      // Simple admin authentication
+      if (email === 'admin@dlms.com' && password === 'admin123') {
+        // Set auth state
+        localStorage.setItem('isAdmin', 'true');
+        Cookies.set('isAdmin', 'true', { 
+          expires: 7,
+          sameSite: 'lax',
+          secure: window.location.protocol === 'https:'
+        });
 
-      const response = await fetch("/api/auth/verify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: values.email,
-          password: values.password,
-        }),
-      });
+        // Show success message
+        toast.success('Login successful');
 
-      const data = await response.json();
-
-      if (data.success) {
-        storeAuth(data.token, data.expiry, values.rememberMe);
-        toast.success("Login successful");
-        router.push("/dashboard");
+        // Pre-fetch dashboard route
+        router.prefetch('/dashboard');
+        
+        // Use replace instead of push for better navigation
+        router.replace('/dashboard');
       } else {
-        toast.error(data.error || "Invalid credentials");
+        toast.error('Invalid credentials');
       }
     } catch (error) {
-      console.error("Login error:", error);
-      toast.error("Login failed");
+      console.error('Login error:', error);
+      toast.error('Login failed');
     } finally {
       setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/10 p-4">
-      <div className="w-full max-w-sm space-y-8">
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-          <p className="text-muted-foreground">
-            Enter your credentials to access the dashboard
-          </p>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-muted/10 px-4 py-8">
+      <div className="w-full max-w-md p-4 sm:p-8 space-y-6 sm:space-y-8 bg-card rounded-lg shadow-sm">
+        <div className="text-center">
+          <h1 className="text-xl sm:text-2xl font-bold">Admin Login</h1>
+          <p className="mt-2 text-sm sm:text-base text-muted-foreground">Enter your credentials to continue</p>
         </div>
-
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="admin@dlms.com"
-                        {...field}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+        
+        <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
+          <div className="space-y-3 sm:space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="mt-1 w-full"
+                placeholder="Enter admin email"
+                disabled={isLoading}
               />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Enter your password"
-                        {...field}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            </div>
+            
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="mt-1 w-full"
+                placeholder="Enter admin password"
+                disabled={isLoading}
               />
-
-              <FormField
-                control={form.control}
-                name="rememberMe"
-                render={({ field }) => (
-                  <FormItem className="flex items-center space-x-2">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormLabel className="text-sm font-normal">Remember me</FormLabel>
-                  </FormItem>
-                )}
-              />
-
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Logging in...
-                  </>
-                ) : (
-                  "Login"
-                )}
-              </Button>
-            </form>
-          </Form>
-        </div>
-
-        <Signature />
+            </div>
+          </div>
+          
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="w-full mt-2"
+          >
+            {isLoading ? 'Logging in...' : 'Login'}
+          </Button>
+        </form>
       </div>
+      
+      <div className="mt-8 sm:mt-16 flex items-center justify-center text-xs sm:text-sm text-muted-foreground px-4 text-center">
+        <span>Design and Develop with</span>
+        <Heart 
+          className="mx-1 h-3 w-3 sm:h-4 sm:w-4 text-red-500" 
+          fill="currentColor"
+          style={{
+            animation: "heartbeat 1.5s ease-in-out infinite",
+          }}
+        />
+        <span>by Abdul Haseeb</span>
+      </div>
+
+      <style jsx global>{`
+        @keyframes heartbeat {
+          0% { transform: scale(1); }
+          25% { transform: scale(1.1); }
+          40% { transform: scale(1); }
+          60% { transform: scale(1.1); }
+          100% { transform: scale(1); }
+        }
+      `}</style>
     </div>
   );
 }

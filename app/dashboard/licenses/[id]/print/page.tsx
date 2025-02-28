@@ -123,40 +123,33 @@ export default function LicensePrintPage({ params }: { params: { id: string } })
 
           <div className="grid grid-cols-3 gap-6">
             <div className="col-span-1">
-              <div className="relative h-40 w-32 overflow-hidden rounded-md border mx-auto">
-                {license.image_url ? (
+              {/* License holder image */}
+              {license.image_url && (
+                <div className="absolute top-4 right-4 w-32 h-40 border border-gray-300">
                   <Image
                     src={license.image_url}
-                    alt={`${license.name}'s photo`}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 33vw"
+                    alt="License holder"
+                    width={128}
+                    height={160}
+                    className="object-cover w-full h-full"
+                    style={{ width: 'auto', height: 'auto' }}
                   />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gray-100">
-                    <span className="text-sm text-gray-500">No photo</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4">
-                <div className="relative h-16 w-full overflow-hidden mx-auto">
-                  {license.signature_url ? (
-                    <Image
-                      src={license.signature_url}
-                      alt="Signature"
-                      width={200}
-                      height={50}
-                      className="object-contain mx-auto"
-                    />
-                  ) : (
-                    <div className="h-16 flex items-center justify-center">
-                      <span className="text-sm text-gray-500">No signature</span>
-                    </div>
-                  )}
                 </div>
-                <div className="text-center text-sm mt-1">Signature</div>
-              </div>
+              )}
+
+              {/* Signature */}
+              {license.signature_url && (
+                <div className="mt-4 h-16">
+                  <Image
+                    src={license.signature_url}
+                    alt="Signature"
+                    width={200}
+                    height={64}
+                    className="object-contain w-full h-full"
+                    style={{ width: 'auto', height: 'auto' }}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="col-span-2">
